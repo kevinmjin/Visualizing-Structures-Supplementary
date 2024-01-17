@@ -19,7 +19,7 @@ header-includes:
 ---
 
 ```{r include_packages2, include = FALSE}
-knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
+knitr::opts_chunk$set(warning = FALSE, message = FALSE, echo = FALSE) 
 require(knitr)
 require(dplyr)
 require(ggplot2)
@@ -377,7 +377,7 @@ p1 <- createBubblePlotUngroup(var_index = 1, regression_data = sim_predictions_u
 p1
 ```
 
-We now want to see how the visualizations of the data between the mosaic plot and the BECCR Prediction Bubble Plot changes after accounting for $G$. In Figure \ref{fig:mp_sim_prop}, we can clearly see that the mosaic plot does capture the quadratic relationship inherent in the data. However, the difference between the sizes of $g_1$ and $g_2$ is extremely prominent. If the relationship was not as easy to visualize, we can imagine that it will be hard to distinguish possible relationships of $X$ and $Y$ for $G=g_1$. On the other hand, the BECCR Prediction Bubble Plot in Figure \ref{fig:BECCR_sim_prop} not only captures the quadratic relationship between $X$ and $Y$, but also helps us visualize the different relationships between $X$ and $Y$ depending on what $G$ is. While the data does get "condensed" again, the overall quadratic relationship is depicted much more clearly than it does in the mosaic plot in Figure \ref{fig:mp_sim_prop}. We expect that these differences will be further exacerbated in a high-dimensional example with more than 3 variables, as we will see in the next simulation case.
+We now want to see how the visualizations of the data between the mosaic plot and the BECCR Prediction Bubble Plot changes after accounting for $G$. In Figure \ref{fig:mp_sim_prop}, we can clearly see that the mosaic plot does capture the quadratic relationship inherent in the data. However, the difference between the sizes of $g_1$ and $g_2$ is extremely prominent. If the relationship was not as easy to visualize, we can imagine that it will be hard to distinguish possible relationships of $X$ and $Y$ for $G=g_1$. On the other hand, the BECCR Prediction Bubble Plot in Figure \ref{fig:BECCR_sim_prop} not only captures the quadratic relationship between $X$ and $Y$, but also helps us visualize the different relationships between $X$ and $Y$ depending on what $G$ is. While the data does get "condensed" again, the overall quadratic relationship is depicted much more clearly than it does in the mosaic plot in Figure \ref{fig:mp_sim_prop}. We expect that these differences will be further exacerbated in a multi-dimensional example with more than 3 variables, as we will see in the next simulation case.
 
 
 ```{r, fig.cap = "\\label{fig:mp_sim_prop}Mosaic Plot for Hypothetical Ordinal Data with Differing Proportions after Accounting for $G$."}
@@ -393,7 +393,7 @@ createBubblePlot2(var_index = 1, regression_data = sim_predictions,
                   data = sim_data)
 ```
 
-### Simulating Hypothetical High-Dimensional Ordinal Data
+### Simulating Hypothetical multi-Dimensional Ordinal Data
 
 ```{r}
 #| echo: FALSE
@@ -473,7 +473,7 @@ sim_predictions_ungroup_z <- readRDS(file = "data/output/sim7_multi_predictions_
 ```{r}
 #| echo: FALSE
 #| warning: FALSE
-#| fig.cap: "\\label{fig:mp_sim_multi_ungroup}Mosaic Plot of Hypothetical High-Dimensional Aggregated Ordinal Data without accounting for $G$ and $Z$."
+#| fig.cap: "\\label{fig:mp_sim_multi_ungroup}Mosaic Plot of Hypothetical Multi-Dimensional Aggregated Ordinal Data without accounting for $G$ and $Z$."
 #| fig.height: 3.5
 #| fig.width: 5
 mosaicplot(~ X + Y, data = sim_data, main = "")
@@ -483,7 +483,7 @@ mosaicplot(~ X + Y, data = sim_data, main = "")
 ```{r}
 #| echo: FALSE
 #| warning: FALSE
-#| fig.cap: "\\label{fig:BECCR_sim_multi_ungroup}BECCR Prediction Bubble Plot of Hypothetical High-Dimensional Aggregated Ordinal Data without accounting for $G$ and $Z$."
+#| fig.cap: "\\label{fig:BECCR_sim_multi_ungroup}BECCR Prediction Bubble Plot of Hypothetical Multi-Dimensional Aggregated Ordinal Data without accounting for $G$ and $Z$."
 #| fig.height: 3
 #| fig.width: 5
 
@@ -564,7 +564,7 @@ gridExtra::grid.arrange(p1, p2, nrow = 2, ncol = 1)
 ```
 
 ### Discussion
-In summary, through the above simulations, we demonstrate how effective the proposed BECCR Prediction Bubble Plots can be used to capture and visualize various dependence structures — no matter whether they are linear, non-linear, different among different subgroups, and/or have subgroups of different sizes — in high-dimensional contingency tables. While one can use the usual mosaic plots to obtain similar insights about those dependence structures — when they are interpreted correctly and when the dimension of the data is no more than three, some might have a difficult time seeing those patterns easily and clearly, compared to what they see in the corresponding BECCR Prediction Plots. Not to mention that the BECCR Prediction Plots appear to have absolute advantages over mosaic plots when the dimension of the data is greater than three.
+In summary, through the above simulations, we demonstrate how effective the proposed BECCR Prediction Bubble Plots can be used to capture and visualize various dependence structures — no matter whether they are linear, non-linear, different among different subgroups, and/or have subgroups of different sizes — in multi-dimensional contingency tables. While one can use the usual mosaic plots to obtain similar insights about those dependence structures — when they are interpreted correctly and when the dimension of the data is no more than three, some might have a difficult time seeing those patterns easily and clearly, compared to what they see in the corresponding BECCR Prediction Plots. Not to mention that the BECCR Prediction Plots appear to have absolute advantages over mosaic plots when the dimension of the data is greater than three.
 
 However, it’s important to emphasize that our main goal here is $\underline{\text{not}}$ to show that BECCR Prediction Bubble Plots “outperform” the mosaic plots. Rather, we are proposing to use BECCR Prediction Bubble Plots as a *complementary* EDA tool and technique for visualizing dependence structures in categorical data, on top of mosaic plots and/or any existing visualization methods. One way to look at the mutual complement between BECCR Prediction Bubble Plots and mosaic plots for categorical data is to think of the role of Least-Squares (LS) fitted lines to scatter plots for quantitative data. No one would claim that LS-fitted lines are more important than scatter plots when visualizing relationships between quantitative variables; we use scatter plots to display observed data while using LS-fitted lines to capture potential *patterns* in quantitative data, to figure out what we should do (which models we may want to fit) at the modeling step of data analysis. Similarly, one can use mosaic plots to show the observed counts/proportions of the data, while further using BECCR Prediction Bubble Plots to help identify critical dependence structures and potential interactions in categorical data before moving to fit a model on those data. It’s our firm belief that this newly developed graphical tool can help us do a better job in modeling categorical data.
 
