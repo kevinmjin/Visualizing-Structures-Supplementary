@@ -1,7 +1,6 @@
 ---
 title: "Supplementary Material"
-author: "Kevin Jin"
-date: "2024-01-17"
+author: "Kevin Jin and Shu-Min Liao"
 output: pdf_document
 header-includes:
   - \usepackage{multirow}
