@@ -1,0 +1,936 @@
+---
+title: "Supplementary Material"
+author: "Kevin Jin"
+date: "2024-01-17"
+output: pdf_document
+header-includes:
+  - \usepackage{multirow}
+  - \usepackage{diagbox}
+  - \usepackage{booktabs}
+  - \usepackage{longtable}
+  - \usepackage{array}
+  - \usepackage{multirow}
+  - \usepackage{wrapfig}
+  - \usepackage{float}
+  - \usepackage{colortbl}
+  - \usepackage{pdflscape}
+  - \usepackage{tabu}
+  - \usepackage{threeparttable}
+  - \usepackage{threeparttablex}
+---
+
+```{r include_packages2, include = FALSE}
+knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
+require(knitr)
+require(dplyr)
+require(ggplot2)
+source("scripts.R")
+```
+
+# Simulations
+
+## Simulation for Ordinal Response Variables with Multiple Levels
+
+Let's now use simulations to check the efficacy this proposed method for visualizing the dependence structure and interactions of categorical data with an ordinal response which has multiple levels. We begin with visualizing interactions of categorical data for ordinal responses with multiple levels. We will begin with the cases of having three variables (response variable $Y$, explanatory variable $X$, and grouping variable $G$) and consider examples with more than three variables at the end of this section. 
+
+In our simulations with 3 variables, we will consider a hypothetical data set where the ordinal response $Y$ has five categories ($y_1,\dots,y_5$), ordinal predictor $X$  has three categories ($x_1,x_2,x_3$), and nominal predictor $G$ has two categories ($g_1, g_2$) unless otherwise specified. While these number of categories were arbitrarily chosen, these combination of category number for each variable will be sufficient to consider multiple different relationships between the variables. Further, our BECCR predictions will always be done with a bootstrap resampling of $B=1000$ to ensure consistency^[We chose $B=1000$ for the sake of efficiency and saving time because of additional simulations performed but not reported in this thesis.].
+
+### Simulating Hypothetical Data with Linear Relationship
+
+For our first simulation, consider the following aggregated hypothetical data set shown in Figures \ref{fig:mp_sim_SLR_ungroup} (mosaic plot) and \ref{fig:BECCR_sim_SLR_ungroup} (BECCR Prediction Bubble Plot). We will consider this aggregate visualization first, as we want to see what kind of "Simpson's Paradox" may occur before accounting for grouping variable $G$. This will allow us to gain a better insight on how the BECCR Prediction Bubble Plots can be used to potentially visualize these amalgamation effects.
+
+
+```{r}
+#| echo: FALSE
+initialize_data <- function(data = df){
+  data2 <- data |>
+    pivot_longer(
+      cols = starts_with("g"),
+      names_to = c("G", "X"),
+      names_sep = "_",
+      values_to = "Freq"
+    ) |>
+    mutate(X = factor(X), Y = factor(Y), G = factor(G))
+  
+  data_long <- countsToCases(data2)
+  data_long_ungroup <- data_long |>
+    select(-G)
+  return(list(data_long, data_long_ungroup))
+}
+
+sim_data_raw <- read.csv("data/sim1_slr.csv", fileEncoding="UTF-8-BOM")
+sim_data_dfs <- initialize_data(sim_data_raw)
+sim_data <- sim_data_dfs[[1]]
+sim_data_ungroup <- sim_data_dfs[[2]]
+```
+
+```{r}
+#| fig.cap: "\\label{fig:mp_sim_SLR_ungroup}Mosaic Plot of Aggregated Hypothetical Data Set 1 without accounting for $G$"
+#| echo: FALSE
+#| fig.height: 4
+#| fig.width: 5
+mosaicplot(~ X + Y, data = sim_data, main = "")
+```
+
+```{r}
+#| echo: FALSE
+#| eval: FALSE
+sim_predictions <- runBootstrapRegression(var_index = 1, 
+                                               data = sim_data, 
+                                               runs = 1000)
+saveRDS(sim_predictions, file = "data/output/sim1_slr_predictions.Rds")
+
+sim_predictions_ungroup <- runBootstrapRegression(var_index = 1, 
+                                                data = sim_data_ungroup, 
+                                                runs = 1000)
+saveRDS(sim_predictions_ungroup, 
+        file = "data/output/sim1_slr_predictions_ungroup.Rds")
+```
+
+```{r}
+#| echo: FALSE
+#| warning: FALSE
+#| fig.cap: "\\label{fig:BECCR_sim_SLR_ungroup}BECCR Prediction Bubble Plot of Aggregated Hypothetical Data Set 1 without accounting for $G$"
+#| fig.height: 3
+#| fig.width: 5
+sim_predictions <- readRDS(file = "data/output/sim1_slr_predictions.Rds")
+sim_predictions_ungroup <- readRDS(file = "data/output/sim1_slr_predictions_ungroup.Rds")
+full_data <- getBubblePlotData(var_index = 1, 
+                               regression_data = sim_predictions_ungroup,
+                               data = sim_data)
+p1 <- createBubblePlotUngroup(var_index = 1, regression_data = sim_predictions_ungroup,
+                        data = sim_data_ungroup)
+p1 +
+  labs(
+    title = ""
+  )
+```
+
+Looking at these visualizations, both the BECCR Prediction Bubble Plot and the mosaic plot do not seem to indicate that there is an relationship between $X$ and $Y$. The hypothetical data set used is displayed in Table \ref{tab:sim_SLR}. From this, we can see, that after accounting for $G$, there appears to be a linear relationship between $X$ and $Y$, with it being negative or positive depending on the level of $G$. In Figures \ref{fig:mp_sim_SLR} and \ref{fig:BECCR_sim_SLR}, we can see the mosaic plot and the BECCR Prediction Bubble Plot of the data, after considering the third variable $G$. Looking at these figures, we can see that both the mosaic plot and the BECCR Prediction Bubble Plot are able to capture the linear relationship between $X$ and $Y$ after accounting for $G$, with the BECCR Prediction Bubble Plots displaying this linear pattern in a much clearer fashion. 
+
+
+```{r}
+#| echo: FALSE
+sim_data_raw |>
+  rowwise() |>
+  mutate(Y = paste0("$y_", strsplit(Y, "y")[[1]][2], "$")) |>
+  kableExtra::kable(col.names = c("\\diagbox{$Y$}{$(G,X)$}", 
+                                  "$(g_1, x_1)$", "$(g_1, x_2)$", "$(g_1, x_3)$", 
+                                  "$(g_2, x_1)$", "$(g_2, x_2)$", "$(g_2, x_3)$"),
+                    booktab = T, align = "c", label = NA, escape = F,
+                    caption = "\\label{tab:sim_SLR}Hypothetical Ordinal Data
+                    with Linear Relationship Between $X$ and $Y$") |>
+  kableExtra::kable_styling(latex_options = "HOLD_position")
+```
+
+
+```{r, fig.cap = "\\label{fig:mp_sim_SLR}Mosaic Plot for Hypothetical Data with Linear Relationships after Accounting for $G$"}
+#| echo: FALSE
+#| warning: FALSE
+#| fig.height: 3.5
+#| fig.width: 5
+mosaicplot(~ G + Y + X, data = sim_data, main = "")
+```
+
+```{r, fig.cap = "\\label{fig:BECCR_sim_SLR}BECCR Prediction Bubble Plots for Hypothetical Data with Linear Relationships after Accounting for $G$"}
+createBubblePlot2(var_index = 1, regression_data = sim_predictions,
+                  data = sim_data) + 
+  labs(
+    title = ""
+  )
+```
+
+```{r}
+#| eval: FALSE
+#| echo: FALSE
+# PUT IN THE APPENDIX?
+createMultiBKPlot(data = sim_data)
+```
+
+### Simulating Hypothetical Data with Quadratic Relationship
+
+Moving onto the next case, we want to determine how well BECCR Prediction Bubble Plots do to visualize the following hypothetical health data oulined in Table \ref{tab:sim_quadratic}. Without considering $G$, both the mosaic plot and the BECCR Prediction Bubble Plot (seen in Figures \ref{fig:mp_sim_quadratic_ungroup} and \ref{fig:BECCR_sim_quadratic_ungroup} respectively) seem to indicate no relationship between $X$ and $Y$, which deviates what we observed from the data in Table \ref{tab:sim_quadratic}. On the other hand, when looking at Figure \ref{fig:mp_sim_quadratic} and Figure \ref{fig:BECCR_sim_quadratic}, one can see a quadratic relationship between $X$ and $Y$ within each level of the BECCR Prediction Bubble Plot, but not so easily in the mosaic plot.
+
+It is important to notice that the BECCR Bubble Prediction Plot seems to "condense" the results, and this is due to how the (checkerboard copula) regression works, as well as the fact we are "predicting" a response category. As a result, the quadratic relationship of $X$ and $Y$ is better captured and displayed in the BECCR Prediction Bubble Plot (Figure \ref{fig:BECCR_sim_quadratic}), while some people might have difficulties visualizing this quadratic relationship in the mosaic plot (Figure \ref{fig:mp_sim_quadratic}).
+
+
+```{r}
+#| echo: FALSE
+sim_data_raw <- read.csv("data/sim4_quadratic.csv", fileEncoding="UTF-8-BOM")
+sim_data_dfs <- initialize_data(sim_data_raw)
+sim_data <- sim_data_dfs[[1]]
+sim_data_ungroup <- sim_data_dfs[[2]]
+```
+
+```{r}
+#| echo: FALSE
+sim_data_raw |>
+  rowwise() |>
+  mutate(Y = paste0("$y_", strsplit(Y, "y")[[1]][2], "$")) |>
+  kableExtra::kable(col.names = c("\\diagbox{$Y$}{$(G,X)$}", 
+                                  "$(g_1, x_1)$", "$(g_1, x_2)$", "$(g_1, x_3)$", 
+                                  "$(g_2, x_1)$", "$(g_2, x_2)$", "$(g_2, x_3)$"),
+                    booktab = T, align = "c", label = NA, escape = F,
+                    caption = "\\label{tab:sim_quadratic}Hypothetical Ordinal Data
+                    with Quadratic Relationship Between $X$ and $Y$") |>
+  kableExtra::kable_styling(latex_options = "HOLD_position")
+```
+
+```{r}
+#| fig.cap: "\\label{fig:mp_sim_quadratic_ungroup}Mosaic Plot of Hypothetical Ordinal Data with Quadratic Relationship without Accounting for $G$"
+#| echo: FALSE
+#| fig.height: 4
+#| fig.width: 5
+mosaicplot(~ X + Y, data = sim_data, main = "")
+```
+
+```{r}
+#| echo: FALSE
+#| eval: FALSE
+sim_predictions <- runBootstrapRegression(var_index = 1, 
+                                               data = sim_data, 
+                                               runs = 1000)
+saveRDS(sim_predictions, file = "data/output/sim4_quadratic_predictions.Rds")
+
+sim_predictions_ungroup <- runBootstrapRegression(var_index = 1, 
+                                                data = sim_data_ungroup, 
+                                                runs = 1000)
+saveRDS(sim_predictions_ungroup, 
+        file = "data/output/sim4_quadratic_predictions_ungroup.Rds")
+```
+
+```{r}
+#| echo: FALSE
+#| warning: FALSE
+#| fig.cap: "\\label{fig:BECCR_sim_quadratic_ungroup}BECCR Prediction Bubble Plots of Hypothetical Ordinal Data with Quadratic Relationship without accounting for $G$"
+#| fig.height: 3
+#| fig.width: 5
+sim_predictions <- readRDS(file = "data/output/sim4_quadratic_predictions.Rds")
+sim_predictions_ungroup <- readRDS(file = "data/output/sim4_quadratic_predictions_ungroup.Rds")
+full_data <- getBubblePlotData(var_index = 1, 
+                               regression_data = sim_predictions_ungroup,
+                               data = sim_data)
+p1 <- createBubblePlotUngroup(var_index = 1, regression_data = sim_predictions_ungroup,
+                        data = sim_data_ungroup)
+p1 + labs(title = "")
+```
+
+```{r, fig.cap = "\\label{fig:mp_sim_quadratic}Mosaic Plot for Hypothetical Ordinal Data with Quadratic Relationship between $X$ and $Y$ after accounting for $G$"}
+#| echo: FALSE
+#| warning: FALSE
+#| fig.height: 3.5
+#| fig.width: 5
+mosaicplot(~ G + Y + X, data = sim_data, main = "")
+```
+
+```{r, fig.cap = "\\label{fig:BECCR_sim_quadratic}BECCR Prediction Bubble Plots for Hypothetical Ordinal Data with Quadratic Relationship after accounting for $G$"}
+createBubblePlot2(var_index = 1, regression_data = sim_predictions,
+                  data = sim_data) + labs(title = "")
+```
+
+### Simulating Hypothetical Ordinal Data with a Pattern
+
+For our third simulation, we want to see how well BECCR Prediction Bubble Plots can do to visualize data with different patterns between $X$ and $Y$ for different levels of $G$. The hypothetical data set for this case is outlined in Table \ref{tab:sim_pattern}, which shows an irregular relationship between $X$ and $Y$ for $G=g_1$, but there still seems to be a pattern that exists. 
+
+Again, when not considering $G$, the visualizations seem to indicate no relationship between $X$ and $Y$ for both the mosaic plot and the BECCR Prediction Bubble Plot (seen in Figures \ref{fig:mp_sim_pattern_ungroup} and \ref{fig:BECCR_sim_pattern_ungroup} respectively). It may be worth noting that in the BECCR Prediction Bubble Plot (in Figure \ref{fig:BECCR_sim_pattern_ungroup}), some aspects of the pattern relationship seems visible, and may suggest that BECCR Prediction Bubble Plots applied to aggregated data without the grouping variable $G$ can still potentially offer some insights to the relationships of the variables.
+
+```{r}
+#| echo: FALSE
+sim_data_raw <- read.csv("data/sim3_pattern.csv", fileEncoding="UTF-8-BOM")
+sim_data_dfs <- initialize_data(sim_data_raw)
+sim_data <- sim_data_dfs[[1]]
+sim_data_ungroup <- sim_data_dfs[[2]]
+```
+
+```{r}
+#| echo: FALSE
+sim_data_raw |>
+  rowwise() |>
+  mutate(Y = paste0("$y_", strsplit(Y, "y")[[1]][2], "$")) |>
+  kableExtra::kable(col.names = c("\\diagbox{$Y$}{$(G,X)$}", 
+                                  "$(g_1, x_1)$", "$(g_1, x_2)$", "$(g_1, x_3)$", 
+                                  "$(g_2, x_1)$", "$(g_2, x_2)$", "$(g_2, x_3)$"),
+                    booktab = T, align = "c", label = NA, escape = F,
+                    caption = "\\label{tab:sim_pattern}Hypothetical Ordinal Data
+                    with a Relationship Pattern Between $X$ and $Y$") |>
+  kableExtra::kable_styling(latex_options = "HOLD_position")
+```
+
+```{r}
+#| fig.cap: "\\label{fig:mp_sim_pattern_ungroup}Mosaic Plot of Hypothetical Ordinal Data with a Pattern Relationship, aggregated without considering $G$."
+#| echo: FALSE
+#| fig.height: 4
+#| fig.width: 5
+mosaicplot(~ X + Y, data = sim_data, main = "")
+```
+
+```{r}
+#| echo: FALSE
+#| eval: FALSE
+sim_predictions <- runBootstrapRegression(var_index = 1, 
+                                               data = sim_data, 
+                                               runs = 1000)
+saveRDS(sim_predictions, file = "data/output/sim3_predictions.Rds")
+
+sim_predictions_ungroup <- runBootstrapRegression(var_index = 1, 
+                                                data = sim_data_ungroup, 
+                                                runs = 1000)
+saveRDS(sim_predictions_ungroup, 
+        file = "data/output/sim3_predictions_ungroup.Rds")
+```
+
+```{r}
+#| echo: FALSE
+#| warning: FALSE
+#| fig.cap: "\\label{fig:BECCR_sim_pattern_ungroup}BECCR Prediction Bubble Plot of Hypothetical Ordinal Data with a Pattern Relationship, Aggregated without considering $G$"
+#| fig.width: 5
+#| fig.height: 3
+sim_predictions <- readRDS(file = "data/output/sim3_predictions.Rds")
+sim_predictions_ungroup <- readRDS(file = "data/output/sim3_predictions_ungroup.Rds")
+full_data <- getBubblePlotData(var_index = 1, 
+                               regression_data = sim_predictions_ungroup,
+                               data = sim_data)
+p1 <- createBubblePlotUngroup(var_index = 1, regression_data = sim_predictions_ungroup,
+                        data = sim_data_ungroup)
+p1
+```
+
+
+Looking at the mosaic plot in Figure \ref{fig:mp_sim_pattern}, we can clearly see that the mosaic plot is able to capture the different relationships between $X$ and $Y$ for $G=g_1$ for different levels of $G$. Similarly, the BECCR Prediction Bubble Plot in Figure \ref{fig:BECCR_sim_pattern} is  also able to capture the relationship between $X$ and $Y$, depending on $G$, again in a much cleaner manner. While both plots successfully capture the peculiar pattern of $X$ and $Y$'s relationship, we begin to see some differences between the two plots. In particular, the part of the mosaic plot for $g_1$ was shorter than the other part of the plot for $g_2$, which arises due to the different sizes of the two subgroups. In the previous simulations, each subgroup $g_1$ and $g_2$ have equal sizes, but when the proportions change, the mosaic plots will change with it. While this does not count as a drawback of mosaic plots, this observation motivates us to simulate the next case.
+
+```{r, fig.cap = "\\label{fig:mp_sim_pattern}Mosaic Plot for Hypothetical Ordinal Data with Pattern After Accounting for $G$"}
+#| echo: FALSE
+#| warning: FALSE
+#| fig.height: 4
+#| fig.width: 5
+mosaicplot(~ G + Y + X, data = sim_data, main = "")
+```
+
+```{r, fig.cap = "\\label{fig:BECCR_sim_pattern}BECCR Prediction Bubble Plot of Hypothetical Ordinal Data with Pattern After Accounting for $G$"}
+createBubblePlot2(var_index = 1, regression_data = sim_predictions,
+                  data = sim_data)
+```
+
+
+### Simulating Hypothetical Ordinal Data with Subgroups of Differing Sizes
+
+As mentioned, this simulation will be performed on a hypothetical data set that will have $g_1$ be in much smaller proportion than $g_2$, as we want to see how well BECCR Prediction Bubble Plots can help us visualize the interactions of it. This data set can be seen in Table \ref{tab:sim_prop}. Clearly, the proportion of observations in $g_1$ is much lower than those of $g_2$. We can see this exhibited as the relationship in $g_2$ seems to dominate the visualizations in Figures \ref{fig:mp_sim_prop_ungroup} and \ref{fig:BECCR_sim_prop_ungroup}.
+
+
+```{r}
+#| echo: FALSE
+sim_data_raw <- read.csv("data/sim6_prop.csv", fileEncoding="UTF-8-BOM")
+sim_data_dfs <- initialize_data(sim_data_raw)
+sim_data <- sim_data_dfs[[1]]
+sim_data_ungroup <- sim_data_dfs[[2]]
+```
+
+```{r}
+#| echo: FALSE
+sim_data_raw |>
+  rowwise() |>
+  mutate(Y = paste0("$y_", strsplit(Y, "y")[[1]][2], "$")) |>
+  kableExtra::kable(col.names = c("\\diagbox{$Y$}{$(G,X)$}", 
+                                  "$(g_1, x_1)$", "$(g_1, x_2)$", "$(g_1, x_3)$", 
+                                  "$(g_2, x_1)$", "$(g_2, x_2)$", "$(g_2, x_3)$"),
+                    booktab = T, align = "c", label = NA, escape = F,
+                    caption = "\\label{tab:sim_prop}Hypothetical Ordinal Data
+                    with Differing Proportions of Subpopulations in $g_1$ and $g_2$") |>
+  kableExtra::kable_styling(latex_options = "HOLD_position")
+```
+
+```{r}
+#| fig.cap: "\\label{fig:mp_sim_prop_ungroup}Mosaic Plot of Ordinal Data with Differing Proportions without accounting for $G$"
+#| echo: FALSE
+#| fig.height: 4
+#| fig.width: 5
+mosaicplot(~ X + Y, data = sim_data, main = "")
+```
+
+```{r}
+#| echo: FALSE
+#| eval: FALSE
+sim_predictions <- runBootstrapRegression(var_index = 1, 
+                                               data = sim_data, 
+                                               runs = 1000)
+saveRDS(sim_predictions, file = "data/output/sim6_predictions.Rds")
+
+sim_predictions_ungroup <- runBootstrapRegression(var_index = 1, 
+                                                data = sim_data_ungroup, 
+                                                runs = 1000)
+saveRDS(sim_predictions_ungroup, 
+        file = "data/output/sim6_predictions_ungroup.Rds")
+```
+
+```{r}
+#| echo: FALSE
+#| warning: FALSE
+#| fig.cap: "\\label{fig:BECCR_sim_prop_ungroup}BECCR Prediction Bubble Plot of Ordinal Data with Differing Proportions without Accounting for $G$"
+#| fig.height: 3.5
+#| fig.width: 4
+sim_predictions <- readRDS(file = "data/output/sim6_predictions.Rds")
+sim_predictions_ungroup <- readRDS(file = "data/output/sim6_predictions_ungroup.Rds")
+full_data <- getBubblePlotData(var_index = 1, 
+                               regression_data = sim_predictions_ungroup,
+                               data = sim_data)
+p1 <- createBubblePlotUngroup(var_index = 1, regression_data = sim_predictions_ungroup,
+                        data = sim_data_ungroup)
+p1
+```
+
+We now want to see how the visualizations of the data between the mosaic plot and the BECCR Prediction Bubble Plot changes after accounting for $G$. In Figure \ref{fig:mp_sim_prop}, we can clearly see that the mosaic plot does capture the quadratic relationship inherent in the data. However, the difference between the sizes of $g_1$ and $g_2$ is extremely prominent. If the relationship was not as easy to visualize, we can imagine that it will be hard to distinguish possible relationships of $X$ and $Y$ for $G=g_1$. On the other hand, the BECCR Prediction Bubble Plot in Figure \ref{fig:BECCR_sim_prop} not only captures the quadratic relationship between $X$ and $Y$, but also helps us visualize the different relationships between $X$ and $Y$ depending on what $G$ is. While the data does get "condensed" again, the overall quadratic relationship is depicted much more clearly than it does in the mosaic plot in Figure \ref{fig:mp_sim_prop}. We expect that these differences will be further exacerbated in a high-dimensional example with more than 3 variables, as we will see in the next simulation case.
+
+
+```{r, fig.cap = "\\label{fig:mp_sim_prop}Mosaic Plot for Hypothetical Ordinal Data with Differing Proportions after Accounting for $G$."}
+#| echo: FALSE
+#| warning: FALSE
+#| fig.height: 3.5
+#| fig.width: 5
+mosaicplot(~ G + Y + X, data = sim_data, main = "")
+```
+
+```{r, fig.cap =  "\\label{fig:BECCR_sim_prop}BECCR Prediction Bubble Plot of Hypothetical Ordinal Data with Differing Proportions after Accounting for $G$"}
+createBubblePlot2(var_index = 1, regression_data = sim_predictions,
+                  data = sim_data)
+```
+
+### Simulating Hypothetical High-Dimensional Ordinal Data
+
+```{r}
+#| echo: FALSE
+sim_data_raw <- read.csv("data/sim7_multi.csv", fileEncoding="UTF-8-BOM")
+sim_data_dfs <- sim_data_raw |>
+  pivot_longer(
+      cols = starts_with("g"),
+      names_to = c("G", "X", "Z"),
+      names_sep = "_",
+      values_to = "Freq"
+    ) |>
+    mutate(X = factor(X), Y = factor(Y), G = factor(G), Z = factor(Z))
+  
+sim_data <- countsToCases(sim_data_dfs)
+sim_data_ungroup_z <- sim_data |>
+  select(-Z)
+sim_data_ungroup <- sim_data_ungroup_z |>
+  select(-G)
+```
+
+```{r}
+#| echo: FALSE
+sim_data_raw |>
+  select(1,2:7) |>
+  rowwise() |>
+  mutate(Y = paste0("$y_", strsplit(Y, "y")[[1]][2], "$")) |>
+  kableExtra::kable(col.names = c("\\diagbox{$Y$}{$(G,X)$}", 
+                                  "$(g_1, x_1)$", "$(g_1, x_2)$", "$(g_1, x_3)$", 
+                                  "$(g_2, x_1)$", "$(g_2, x_2)$", "$(g_2, x_3)$"),
+                    booktab = T, align = "c", label = NA, escape = F,
+                    caption = "\\label{tab:sim_multi_z1}Hypothetical Ordinal Data when $Z = z_1$, ") |>
+  kableExtra::kable_styling(latex_options = "HOLD_position")
+sim_data_raw |>
+  select(1,8:13) |>
+  rowwise() |>
+  mutate(Y = paste0("$y_", strsplit(Y, "y")[[1]][2], "$")) |>
+  kableExtra::kable(col.names = c("\\diagbox{$Y$}{$(G,X)$}", 
+                                  "$(g_1, x_1)$", "$(g_1, x_2)$", "$(g_1, x_3)$", 
+                                  "$(g_2, x_1)$", "$(g_2, x_2)$", "$(g_2, x_3)$"),
+                    booktab = T, align = "c", label = NA, escape = F,
+                    caption = "\\label{tab:sim_multi_z2}Hypothetical Ordinal Data when $Z=z_2$") |>
+  kableExtra::kable_styling(latex_options = "HOLD_position")
+
+
+```
+
+For this simulation, we are going deal with a similar data set as in the prior simulations, but with an additional explanatory binary predictor $Z = \{z_1,z_2\}$. As we can see in Tables \ref{tab:sim_multi_z1} and \ref{tab:sim_multi_z2} (tables for $Z=z_1$ and $Z=z_2$ respectively), a combination of all the prior hypothetical data is exhibited. Without considering both $G$ and $Z$ the aggregated plots are shown in Figures \ref{fig:mp_sim_multi_ungroup} and \ref{fig:BECCR_sim_multi_ungroup} for the mosaic plot and the BECCR Prediction Bubble Plot respectively. From the BECCR Prediction Bubble Plot, we can clearly see that there seems to have a discernible association between $Y$ and $X$, without accounting for the other variables, $G$ and $Z$.
+
+```{r}
+#| echo: FALSE
+#| eval: FALSE
+sim_predictions <- runBootstrapRegression(var_index = 1,
+                                          data = sim_data,
+                                          runs = 1000)
+saveRDS(sim_predictions, file = "data/output/sim7_multi_predictions.Rds")
+
+sim_predictions_ungroup <- runBootstrapRegression(var_index = 1, 
+                                                data = sim_data_ungroup, 
+                                                runs = 1000)
+saveRDS(sim_predictions_ungroup, 
+        file = "data/output/sim7_multi_predictions_ungroup.Rds")
+
+sim_predictions_ungroup_z <- runBootstrapRegression(var_index = 1, 
+                                                data = sim_data_ungroup_z, 
+                                                runs = 1000)
+saveRDS(sim_predictions_ungroup_z, 
+        file = "data/output/sim7_multi_predictions_ungroup_z.Rds")
+```
+
+```{r}
+#| echo: FALSE
+sim_predictions <- readRDS(file = "data/output/sim7_multi_predictions.Rds")
+sim_predictions_ungroup <- readRDS(file = "data/output/sim7_multi_predictions_ungroup.Rds")
+sim_predictions_ungroup_z <- readRDS(file = "data/output/sim7_multi_predictions_ungroup_z.Rds")
+```
+
+```{r}
+#| echo: FALSE
+#| warning: FALSE
+#| fig.cap: "\\label{fig:mp_sim_multi_ungroup}Mosaic Plot of Hypothetical High-Dimensional Aggregated Ordinal Data without accounting for $G$ and $Z$."
+#| fig.height: 3.5
+#| fig.width: 5
+mosaicplot(~ X + Y, data = sim_data, main = "")
+```
+
+
+```{r}
+#| echo: FALSE
+#| warning: FALSE
+#| fig.cap: "\\label{fig:BECCR_sim_multi_ungroup}BECCR Prediction Bubble Plot of Hypothetical High-Dimensional Aggregated Ordinal Data without accounting for $G$ and $Z$."
+#| fig.height: 3
+#| fig.width: 5
+
+full_data <- getBubblePlotData(regression_data = sim_predictions_ungroup,
+                               data = sim_data_ungroup,
+                               var_index = 1)
+p1 <- createBubblePlotUngroup(var_index = 1, regression_data = sim_predictions_ungroup,
+                        data = sim_data_ungroup)
+p1
+```
+
+```{r, fig.cap = "\\label{fig:mp_sim_multi_noz}Mosaic Plot for Hypothetical Multivariate Ordinal Data without Accounting for $Z$"}
+#| echo: FALSE
+#| eval: FALSE
+#| warning: FALSE
+#| fig.height: 3.5
+#| fig.width: 5
+mosaicplot(~ G + Y + X, data = sim_data, main = "")
+
+```
+
+```{r, fig.cap = "\\label{fig:BECCR_sim_multi_noz}BECCR Prediction Bubble Plot for Hypothetical Multivaraite Ordinal Data without Accounting for $Z$"}
+createBubblePlot2(var_index = 1, regression_data = sim_predictions_ungroup_z,
+                  data = sim_data_ungroup_z)
+```
+
+How would these plots change after adding $G$ and $Z$ to the checkerboard copula regression?  We are particularly interested in how effective BECCR Prediction Bubble Plots could capture and identify the potential interactions between 3 predictors compared to the mosaic plots. These visualizations are shown in Figures \ref{fig:mp_sim_multi} and \ref{fig:BECCR_sim_multi}. Notice that the top plot in Figure \ref{fig:BECCR_sim_multi} is for $Z=z_1$, and the bottom plot is for $Z=z_2$. Immediately, we can see that the mosaic plot (Figure \ref{fig:mp_sim_multi}) is really convoluted to look at, difficult to interpret, and provides little useful insights about the dependence structure of the variables.
+
+On the contrary, the BECCR Prediction Bubble Plot (Figure \ref{fig:BECCR_sim_multi}) clearly shows that for each combination of variables $(Z,G,X)$, there is a noticeable relationship with $Y$. When $Z=z_1$, if $G=g_1$, there seems to be a "negative" quadratic relationship between $X$ and $Y$; if $G=g_2$, there instead seems to be a positive quadratic relationship. Further, when $Z=z_2$, if $G=g_1$, there seems to be a strong negative linear relationship between $X$ and $Y$; if $G=g_2$, there seems to be a moderate positive relationship between $X$ and $Y$.
+
+Comparing these results to the data in Table \ref{tab:sim_multi_z1} and \ref{tab:sim_multi_z2}, we can see the BECCR Prediction Bubble Plot is able to convey these relationships clearly. In comparison, the mosaic plot is not only confusing to interpret when there are more than 3 variables, but also fails in identifying any meaningful dependence structure among these variables.
+
+```{r}
+#| echo: FALSE
+#| warning: FALSE
+#| fig.cap: "\\label{fig:mp_sim_multi}Mosaic Plot for Hypothetical Multivariate Ordinal Data after accounting for both $G$ and $Z$."
+#| fig.height: 5
+#| fig.width: 6
+mosaicplot(~ G + Y + X + Z, data = sim_data, main = "")
+```
+
+```{r}
+#| echo: FALSE
+#| warning: FALSE
+#| fig.cap: "\\label{fig:BECCR_sim_multi}BECCR Prediction Bubble Plot for Hypothetical Multivariate Ordinal Data after accounting for both $G$ and $Z$, with $Z=z_1$ being the top figure and $Z=z_2$ being the bottom figure."
+#| fig.scap: "BECCR Prediction Bubble Plot for Hypothetical Multivariate Ordinal Data after accounting for both $G$ and $Z$"
+#| fig.height: 8
+#| fig.width: 5
+full_data <- getBubblePlotData(regression_data = sim_predictions,
+                               data = sim_data,
+                               var_index = 1) |>
+    mutate(Y_name = factor(paste0("y", Y), 
+                           levels = c("y5", "y4", "y3", "y2", "y1")),
+           X_name = paste0("x", X),
+           G_name = paste0("g", G),
+           Z_name = paste0("z", Z))
+full_data$combination_xg <- paste0(
+      "(",
+      full_data$G_name,
+      ",",
+      full_data$X_name,
+      ")"
+    )
+
+z1_data <- filter(full_data, Z == 1)
+p1 <- createBubblePlot(data = z1_data, "combination_xg", "Y_name") +
+  labs(
+    x = "(G,X)",
+    y = "Y"
+  )
+z2_data <- filter(full_data, Z == 2)
+p2 <- createBubblePlot(data = z2_data, "combination_xg", "Y_name") +
+  labs(
+    x = "(G,X)",
+    y = "Y"
+  )
+gridExtra::grid.arrange(p1, p2, nrow = 2, ncol = 1)
+```
+
+### Discussion
+In summary, through the above simulations, we demonstrate how effective the proposed BECCR Prediction Bubble Plots can be used to capture and visualize various dependence structures — no matter whether they are linear, non-linear, different among different subgroups, and/or have subgroups of different sizes — in high-dimensional contingency tables. While one can use the usual mosaic plots to obtain similar insights about those dependence structures — when they are interpreted correctly and when the dimension of the data is no more than three, some might have a difficult time seeing those patterns easily and clearly, compared to what they see in the corresponding BECCR Prediction Plots. Not to mention that the BECCR Prediction Plots appear to have absolute advantages over mosaic plots when the dimension of the data is greater than three.
+
+However, it’s important to emphasize that our main goal here is $\underline{\text{not}}$ to show that BECCR Prediction Bubble Plots “outperform” the mosaic plots. Rather, we are proposing to use BECCR Prediction Bubble Plots as a *complementary* EDA tool and technique for visualizing dependence structures in categorical data, on top of mosaic plots and/or any existing visualization methods. One way to look at the mutual complement between BECCR Prediction Bubble Plots and mosaic plots for categorical data is to think of the role of Least-Squares (LS) fitted lines to scatter plots for quantitative data. No one would claim that LS-fitted lines are more important than scatter plots when visualizing relationships between quantitative variables; we use scatter plots to display observed data while using LS-fitted lines to capture potential *patterns* in quantitative data, to figure out what we should do (which models we may want to fit) at the modeling step of data analysis. Similarly, one can use mosaic plots to show the observed counts/proportions of the data, while further using BECCR Prediction Bubble Plots to help identify critical dependence structures and potential interactions in categorical data before moving to fit a model on those data. It’s our firm belief that this newly developed graphical tool can help us do a better job in modeling categorical data.
+
+\newpage
+
+# Real World Data Application
+
+Chronic pain in adults occur more and more frequently as we age, and this pain can often impact life or work activities. These kinds of high-impact chronic pains are one of the most common reasons why adults seek medical care, and the pain is associated with decreased quality of life, opioid dependence, and poor mental health. As such, it is important to study how different people are affected by pain, and what factors might be associated with one's perception of pain is important to study. As pain is a subjective measure, there could be tendencies within certain subpopulations who may categorize their pain differently, and we want to investigate what factors could impact this.
+
+To accomplish this task, we used data from 2019 National Health Interview Survey (NHIS) from the National Center for Health Statistics in the CDC. We use the Sample Adult interview data^[originally $n=31997$ but after filtering out all missing data for our desired variables, we are left with an analytic sample $n=19185$.] and will use the following variables adapted from this data set: 
+
+* Amount of Pain, response variable $Y$, which is an ordinal variable with 3 levels: Small Pain ($y_1$ = SP), Moderate Pain ($y_2$ = MP), and Great Pain ($y_3$ = GP)
+* Frequency of Pain, explanatory variable $X$, which is an ordinal variable with 3 levels: Low ($x_1$), Medium ($x_2$ = Med), and High ($x_3$)
+* Ethnicity, explanatory variable $G$, which is a binary ordinal variable: People of the Global Majority ($g_1$ = POGM) and White ($g_2$)
+* Sex, explanatory variable $Z$, which is a binary ordinal variable: Men ($z_1$) and Women ($z_2$)
+
+The actual data set is outlined in the Table \ref{tab:NHISpain}.
+
+```{r}
+#| echo: FALSE
+adult19 <- read.csv("data/adult19.csv")
+adult_pain_data <- adult19 |>
+  select(PAIFRQ3M_A, PAIAMNT_A, PAIWKLM3M_A, PAIAFFM3M_A,
+         SEX_A, HISPALLP_A, URBRRL) |>
+  na.omit() |>
+  filter(SEX_A <= 2, HISPALLP_A <= 7,
+         PAIFRQ3M_A <= 4, PAIAMNT_A <= 3,
+         PAIWKLM3M_A <= 4, PAIAFFM3M_A <= 4) |>
+  rename(sex = SEX_A, pain_freq = PAIFRQ3M_A, pain_amt = PAIAMNT_A, 
+         pain_impact1 = PAIWKLM3M_A, pain_impact2 = PAIAFFM3M_A,
+         urban = URBRRL) |>
+  mutate(race = ifelse(HISPALLP_A != 2, 1, 2),
+         pain_impact = case_when(pain_impact1 == 4 | pain_impact2 == 4 ~ 4,
+                                 pain_impact1 == 3 | pain_impact2 == 3 ~ 3,
+                                 pain_impact1 == 2 | pain_impact2 == 2 ~ 2,
+                                 TRUE ~ 1)
+         ) |>
+  select(-c(pain_impact1,pain_impact2, HISPALLP_A))
+pain_data <- adult_pain_data |>
+  select(-pain_impact, -urban) |>
+  as_tibble()
+pain_data_ungroup <- pain_data |>
+  select(-race)
+pain_data_ungroup_ungroup <- pain_data_ungroup |>
+  select(-sex)
+
+
+pain_data_table <- pain_data |>
+  group_by(pain_freq, pain_amt, sex, race) |>
+  dplyr::count() |>
+  mutate(
+    sex = ifelse(sex == 1, "Men", "Women"),
+    race = ifelse(race == 1, "POGM", "White"),
+    pain_amt = factor(case_when(pain_amt == 1 ~ "Small Pain (SP)",
+                                      pain_amt == 3 ~ "Moderate Pain (MP)",
+                                      pain_amt == 2 ~ "Great Pain (GP)"),
+                            levels = c("Small Pain (SP)", 
+                                       "Moderate Pain (MP)", 
+                                       "Great Pain (GP)")),
+    pain_freq = factor(case_when(pain_freq == 1 ~ "N",
+                                      pain_freq == 2 ~ "Low",
+                                      pain_freq == 3 ~ "Medium (Med)",
+                                      pain_freq == 4 ~ "High"),
+                            levels = c("N", "Low", "Medium (Med)", "High"))
+  ) |>
+  pivot_wider(
+    names_from = race,
+    values_from = n
+  ) 
+
+pain_data_table |>
+  select(pain_amt, c(1,3:5)) |>
+  arrange(pain_amt, pain_freq) |>
+  kableExtra::kable(col.names = c("Pain Amount ($Y$)", "Pain Frequency ($X$)", "Sex ($Z$)", "POGM ($g_1$)"
+                                  ,"White ($g_2$)"),
+                    booktab = T, align = "c", label = NA, escape = FALSE,
+                    caption = "\\label{tab:NHISpain}Perception of Amount of Pain
+                    Suffered by Pain Frequency, Sex, and Ethnicity") |>
+  kableExtra::kable_styling(latex_options = "HOLD_position") |>
+  kableExtra::add_header_above(header = c(" " = 3, "Ethnicity ($G$)" = 2), escape = F) |>
+  kableExtra::collapse_rows(columns = 1:2)
+```
+
+Given this data set, we want to explore if it has any peculiar features and if we can glean any insights about the relationships about the variables. For each variable in the data, the table consisting of the proportion of observations in each category is listed in the Appendix \ref{A}. 
+
+Besides using those tables as a numerical summary of the data, we also want to utilize graphs to visualize as part of our EDA of the data set. The first visualization tool we use is the mosaic plot, shown as Figure \ref{fig:mp_NHIS}.
+
+```{r}
+#| echo: FALSE
+#| fig.cap: "\\label{fig:mp_NHIS}Mosaic Plot of Perception of Pain Adults Feel by Pain Frequency, Sex, and Ethnicity."
+#| fig.height: 4    
+#| fig.width: 6   
+pain_data2 <- pain_data |>
+  mutate(
+    Z = ifelse(sex == 1, "Men", "Women"),
+    G = ifelse(race == 1, "POGM", "White"),
+    Y = factor(case_when(pain_amt == 1 ~ "SP",
+                                      pain_amt == 3 ~ "MP",
+                                      pain_amt == 2 ~ "GP"),
+                            levels = c("SP", "MP", "GP")),
+    X = factor(case_when(pain_freq == 2 ~ "Low",
+                         pain_freq == 3 ~ "Med",
+                         pain_freq == 4 ~ "High"),
+               levels = c("Low", "Med", "High"))
+  )
+mosaicplot(~G + Y + X + Z, data = pain_data2, main = "")
+```
+
+From this mosaic plot, we can see that for every response of pain level, there doesn't seem to be much of a difference in the proportions of men and women responding based off their ethnicity. That is, the proportions of men and women for POGM who respond to each pain level seem to be proportionally similar to those of white men and women. Further, the relative differences in the proportions between the pain frequencies also seem similar between POGM and white participants. 
+
+However, it is unclear whether or not there are tangible interactions between the variables and what their relationship would be. To hopefully gain more useful insight into this, we create a BECCR Prediction Bubble Plot shown in Figure \ref{fig:BECCR_NHIS} to help.  
+
+```{r}
+#| eval: FALSE
+#| echo: FALSE
+start_time <- Sys.time()
+pain_predictions_race <- runBootstrapRegression(var_index = 2, data = pain_data, 
+                                           runs = 1000)
+saveRDS(pain_predictions_race, file = "data/output/pain_predictions_race.Rds")
+end_time <- Sys.time()
+end_time - start_time
+start_time <- Sys.time()
+pain_predictions_race_ungroup <- runBootstrapRegression(var_index = 2, data = pain_data_ungroup, 
+                                           runs = 1000)
+saveRDS(pain_predictions_race_ungroup, file = "data/output/pain_predictions_race_ungroup.Rds")
+end_time <- Sys.time()
+end_time - start_time
+```
+
+```{r}
+#| echo: FALSE
+#| fig.width: 6
+#| warning: FALSE
+#| fig.cap: "\\label{fig:BECCR_NHIS}BECCR Prediction Bubble Plots of 2019 NHIS Adult Survey Data about Amount of Pain received by Reported Pain Frequency, Sex, and Ethnicity. (Top) Combination of categories (POGM, Sex, Pain Frequency) and (Bottom) combination of categories (White, Sex, Pain Frequency) estimated by copula regression in the 1000 bootstrap resampling"
+#| fig.scap: "Prediction Bubble Plots of 2019 NHIS Adult Survey Data about Amount of Pain received by Reported Pain Frequency, Sex, and Ethnicity."
+pain_predictions_race <- readRDS("data/output/pain_predictions_race.Rds")
+full_data <- getBubblePlotData(regression_data = pain_predictions_race,
+                               data = pain_data,
+                               var_index = 2)
+full_data <- full_data |>
+  mutate(
+    sex_name = ifelse(sex == 1, "Men", "Women"),
+    race_name = ifelse(race == 1, "POGM", "White"),
+    pain_amt_name = factor(case_when(pain_amt == 1 ~ "SP",
+                                      pain_amt == 3 ~ "MP",
+                                      pain_amt == 2 ~ "GP"),
+                            levels = c("SP", "MP", "GP")),
+    pain_freq_name = factor(case_when(pain_freq == 1 ~ "N",
+                                      pain_freq == 2 ~ "Low",
+                                      pain_freq == 3 ~ "Med",
+                                      pain_freq == 4 ~ "High"),
+                            levels = c("N", "Low", "Med", "High"))
+  )
+
+full_data$combination_fr <- paste0(
+  "(",
+  full_data$pain_freq_name,
+  ",",
+  full_data$race_name,
+  ")"
+)
+
+full_data$combination_rf <- paste0(
+  "(",
+  full_data$race_name,
+  ",",
+  full_data$pain_freq_name,
+  ")"
+)
+
+full_data$combination_fs <- paste0(
+  "(",
+  full_data$pain_freq_name,
+  ",",
+  full_data$sex_name,
+  ")"
+)
+
+
+full_data$combination_sf <- paste0(
+  "(",
+  full_data$sex_name,
+  ",",
+  full_data$pain_freq_name,
+  ")"
+)
+
+full_data <- full_data |>
+  mutate(
+    combination_rf = factor(combination_rf, 
+                            levels = c("(POGM,Low)", "(POGM,Med)", "(POGM,High)",
+                                       "(White,Low)", "(White,Med)", "(White,High)")),
+    combination_fr = factor(combination_fr, 
+                            levels = c("(Low,POGM)", "(Low,White)",
+                                       "(Med,POGM)", "(Med,White)", 
+                                       "(High,POGM)", "(High,White)")),
+    combination_sf = factor(combination_sf, 
+                            levels = c("(Men,Low)", "(Men,Med)", "(Men,High)",
+                                       "(Women,Low)", "(Women,Med)", "(Women,High)")),
+    combination_fs = factor(combination_fs, 
+                            levels = c("(Low,Men)", "(Low,Women)",
+                                       "(Med,Men)", "(Med,Women)", 
+                                       "(High,Men)", "(High,Women)"))
+
+  )
+
+
+POGM_data <- filter(full_data, race == 1)
+p1 <- createBubblePlot(data = POGM_data, x = "combination_sf", y = "pain_amt_name") +
+  labs(
+    x = "(Sex, Pain Frequency)",
+    y = "Amount of Pain",
+    # title = "Bubble Plot for Moderate"
+  )
+#p1
+White_data <- filter(full_data, race == 2)
+p2 <- createBubblePlot(data = White_data, x = "combination_sf", y = "pain_amt_name") +
+  labs(
+    x = "(Sex, Pain Frequency)",
+    y = "Amount of Pain",
+    # title = "Bubble Plot for Moderate"
+  )
+#p2
+gridExtra::grid.arrange(p1,p2, nrow = 2, ncol = 1)
+```
+
+Looking at Figure \ref{fig:BECCR_NHIS}, one can easily see some clear relationships arise from the BECCR predicted categories of the amount of pain. For both POGM and White Men, they seem to share a similar clear positive relationship between pain frequency ($X$) and amount of pain perceived ($Y$). This relationship seems to be quite strong as the prediction jumps from Small Pain (SP) to Great Pain (GP) after increasing from low pain frequency to medium pain frequency. However, the results for Women tell a different story, depending on whether they are POGM or White. Those different stories imply that there is a potential interaction effect between Ethnicity ($G$) and Pain Frequency ($X$).
+
+Similar to White Men, White Women also seem to have a positive relationship between Pain Frequency ($X$) and Pain Percieved ($Y$), but this relationship seems more linear than White Men's as we predict that White Women feel moderate pain (MP) when they have medium (med) pain frequency, instead of jumping directly up to great pain (GP) like it was for the White Men. On the other hand, for POGM Women, the amount of pain seems to be consistently high, even when the pain frequency is low. Though it dips back to moderate pain (MP) when the pain frequency is medium (med), it goes back to great pain (GP) when the pain frequency is high. This relationship is unlike the relationships we observe for POGM Men, as this seems quadratic in a sense. All those differences tell us that Sex ($Z$) and Ethnicity ($G$) might interact with each other.
+
+Not only does this suggest that there may be differences in how one should interpret the pain data for men and women, but we also have to take into consideration their ethnicity as well; in other words, it's important to pay attention to the $\underline{\text{intersectionality}}$ between Sex ($Z$) and Ethnicity ($G$) when predicting a patient's pain level by their pain frequency ($X$).
+
+To illustrate how ignoring intersectionality may lead  Simpson's paradox, let us first consider the BECCR Prediction Bubble Plot $\underline{\text{without}}$ considering their Ethnicity ($Z$). This is illustrated in Figure \ref{fig:BECCR_NHIS_noZ}. Taking a look at this plot, we can see that the pattern between the reported pain amount and reported pain frequency is the same strong positive relationship that we saw in Figure \ref{fig:BECCR_NHIS} for both White and POGM men. When you look at women without considering their ethnicity, we can see that the aggregated plot (the right half of Figure\ref{fig:BECCR_NHIS_noZ}) looks somehow similar to the BECCR Prediction Bubble Plot of POGM women (the right half of the top plot in Figure \ref{fig:BECCR_NHIS}), with the White Women's positive linear relationship ("the right half of the bottom plot in Figure \ref{fig:BECCR_NHIS}) being hidden. This is an effect of amalgamating our subpopulations together, and is what we are calling "Simpson's Paradox" for response variables with more than 2 categories in this paper. As a consequence, one may over-estimate White Women's pain level when they report low pain frequency and prescribe too strong pain medicine for those White Women.
+
+We can take this another step further and consider the BECCR Prediction Bubble Plot of the NHIS data without considering both Ethnicity ($G$) *and* Sex ($Z$), which results in Figure \ref{fig:BECCR_NHIS_noZ_noG}. 
+
+```{r}
+#| echo: FALSE
+#| fig.width: 6
+#| fig.height: 3.25
+#| warning: FALSE
+#| fig.cap: "\\label{fig:BECCR_NHIS_noZ}BECCR Prediction Bubble Plots of 2019 NHIS Adult Survey Data about Amount of Pain received by Reported Pain Frequency and Sex. Predicted category estimated by copula regression in the 1000 bootstrap resamples."
+  #| fig.scap: "BECCR Prediction Bubble Plots of 2019 NHIS Adult Survey Data about Amount of Pain received by Reported Pain Frequency and Sex."
+
+pain_predictions_race_ungroup <- readRDS("data/output/pain_predictions_race_ungroup.Rds")
+full_data <- getBubblePlotData(regression_data = pain_predictions_race_ungroup,
+                               data = pain_data_ungroup,
+                               var_index = 2)
+full_data <- full_data |>
+  mutate(
+    sex_name = ifelse(sex == 1, "Men", "Women"),
+    #race_name = ifelse(race == 1, "POGM", "White"),
+    pain_amt_name = factor(case_when(pain_amt == 1 ~ "SP",
+                                      pain_amt == 3 ~ "MP",
+                                      pain_amt == 2 ~ "GP"),
+                            levels = c("SP", "MP", "GP")),
+    pain_freq_name = factor(case_when(pain_freq == 1 ~ "N",
+                                      pain_freq == 2 ~ "Low",
+                                      pain_freq == 3 ~ "Med",
+                                      pain_freq == 4 ~ "High"),
+                            levels = c("N", "Low", "Med", "High"))
+  )
+
+
+full_data$combination_fs <- paste0(
+  "(",
+  full_data$pain_freq_name,
+  ",",
+  full_data$sex_name,
+  ")"
+)
+
+
+full_data$combination_sf <- paste0(
+  "(",
+  full_data$sex_name,
+  ",",
+  full_data$pain_freq_name,
+  ")"
+)
+
+full_data <- full_data |>
+  mutate(
+    combination_sf = factor(combination_sf, 
+                            levels = c("(Men,Low)", "(Men,Med)", "(Men,High)",
+                                       "(Women,Low)", "(Women,Med)", "(Women,High)")),
+    combination_fs = factor(combination_fs, 
+                            levels = c("(Low,Men)", "(Low,Women)",
+                                       "(Med,Men)", "(Med,Women)", 
+                                       "(High,Men)", "(High,Women)"))
+
+  )
+
+p1 <- createBubblePlot(data = full_data, x = "combination_sf", y = "pain_amt_name") +
+  labs(
+    x = "(Sex, Pain Frequency)",
+    y = "Pain Amount",
+    # title = "Bubble Plot for Moderate"
+  )
+p1
+```
+
+```{r}
+#| eval: FALSE
+#| echo: FALSE
+start_time <- Sys.time()
+pain_predictions_race_ungroup_ungroup <- runBootstrapRegression(var_index = 2, 
+                                                                data = pain_data_ungroup_ungroup,
+                                                                runs = 1000)
+saveRDS(pain_predictions_race_ungroup_ungroup, 
+        file = "data/output/pain_predictions_race_ungroup_ungroup.Rds")
+end_time <- Sys.time()
+end_time - start_time
+```
+
+```{r}
+#| echo: FALSE
+#| fig.width: 6
+#| fig.height: 3.25
+#| warning: FALSE
+#| fig.cap: "\\label{fig:BECCR_NHIS_noZ_noG}BECCR Prediction Bubble Plots of 2019 NHIS Adult Survey Data about Amount of Pain received by Reported Pain Frequency. Predicted category estimated by copula regression in the 1000 bootstrap resamples."
+  #| fig.scap: "BECCR Prediction Bubble Plots of 2019 NHIS Adult Survey Data about Amount of Pain received by Reported Pain Frequency."
+
+pain_predictions_race_ungroup_ungroup <- readRDS(file = "data/output/pain_predictions_race_ungroup_ungroup.Rds")
+full_data <- getBubblePlotData(regression_data = pain_predictions_race_ungroup_ungroup,
+                               data = pain_data_ungroup_ungroup,
+                               var_index = 2)
+full_data <- full_data |>
+  mutate(
+    pain_amt_name = factor(case_when(pain_amt == 1 ~ "SP",
+                                      pain_amt == 3 ~ "MP",
+                                      pain_amt == 2 ~ "GP"),
+                            levels = c("SP", "MP", "GP")),
+    pain_freq_name = factor(case_when(pain_freq == 1 ~ "N",
+                                      pain_freq == 2 ~ "Low",
+                                      pain_freq == 3 ~ "Med",
+                                      pain_freq == 4 ~ "High"),
+                            levels = c("N", "Low", "Med", "High"))
+  )
+
+p1 <- createBubblePlot(data = full_data, x = "pain_freq_name", y = "pain_amt_name") +
+  labs(
+    x = "Pain Frequency",
+    y = "Pain Amount",
+  )
+p1
+```
+
+\newpage 
+
+# Appendix \label{A}
+
+## EDA for Single Variables for NHIS Adult Pain Data {#NHIS_EDA}
+
+```{r}
+## Ethnicity
+tally(~G, data = pain_data2, format = "proportion")
+
+## Sex
+tally(~Z, data = pain_data2, format = "proportion")
+
+## Frequency of Pain
+tally(~X, data = pain_data2, format = "proportion")
+
+## Amount of Pain
+tally(~Y, data = pain_data2, format = "proportion")
+
+```
